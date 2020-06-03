@@ -1,56 +1,52 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ContainerFluid, Container, Form } from './styles';
-import { states } from '../../services/states';
+
 import api from '../../services/api';
 import Select from '../../components/Select';
 
 function HomePage() {
   const [cities, setCities] = useState([]);
-  const [ufList, setUfList] = useState(states);
-  const [ufCities, setUfCities] = useState([]);
+  const [ufList, setUfList] = useState([]);
+  const [currentCity, setCurrentCity] = useState('');
   const [currentUf, setCurrentUf] = useState('');
 
-  function handleChange(e) {
-    const uf = e.target.value;
-    const firstOption = e.target[0].value;
+  useEffect(() => {
+    api.get('api/v1/localidades/estados').then((response) => {
+      const ufInitials = response.data.map((uf) => uf.sigla);
 
-    if (currentUf !== uf && uf !== firstOption) {
-      setCurrentUf(uf);
-
-      const selectedState = ufCities.find((state) => {
-        return uf === state.sigla;
-      });
-
-      const currentCities = selectedState.cidades.map((city) => {
-        return {
-          name: city,
-          value: city,
-        };
-      });
-
-      setCities(currentCities);
-    } else {
-      setCurrentUf('');
-      setCities([]);
-    }
-  }
-
-  const loadStates = useCallback(async () => {
-    const response = await api.get('estados-cidades.json');
-
-    setUfCities(response.data.estados);
+      setUfList(ufInitials);
+    });
   }, []);
 
   useEffect(() => {
-    loadStates();
-  }, [loadStates]);
+    if (currentUf === '0') {
+      return;
+    }
+
+    api
+      .get(`api/v1/localidades/estados/${currentUf}/municipios`)
+      .then((response) => {
+        const cityNames = response.data.map((city) => city.nome);
+
+        setCities(cityNames);
+      });
+  }, [currentUf]);
+
+  const handleSelectUf = useCallback((event) => {
+    setCurrentUf(event.target.value);
+  }, []);
+
+  const handleSelectCity = useCallback((event) => {
+    setCurrentCity(event.target.value);
+  }, []);
 
   return (
     <ContainerFluid>
       <Container>
         <Form>
           <Select
-            onChange={handleChange}
+            onChange={handleSelectUf}
+            value={currentUf}
             label="Selecione o estado"
             firstOption="Estados"
             name="uf"
@@ -59,6 +55,8 @@ function HomePage() {
           />
 
           <Select
+            onChange={handleSelectCity}
+            value={currentCity}
             label="Verifique as cidades"
             firstOption={currentUf ? `Cidades de ${currentUf}` : 'Cidades'}
             name="city"
